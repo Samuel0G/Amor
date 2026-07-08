@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Amor Café e Flor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css?v=bottom-nav-3-1" />
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+    <script src="app.js?v=bottom-nav-3-1" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="side-rail" aria-label="Navegação principal">
+        <img class="rail-logo" src="assets/amor-cafe-flor-logo.png" alt="Amor Café e Flor" />
+        <button class="rail-link active" data-view="home" aria-label="Início"><i data-lucide="home"></i></button>
+        <button class="rail-link" data-view="catalog" aria-label="Produtos"><i data-lucide="shopping-bag"></i></button>
+        <button class="rail-link" data-view="orders" aria-label="Pedido"><i data-lucide="package-check"></i></button>
+        <button class="rail-link admin-jump" data-view="admin" aria-label="Admin"><i data-lucide="layout-dashboard"></i></button>
+      </aside>
+
+      <main class="app-main">
+        <section class="view active" id="home-view"></section>
+        <section class="view" id="catalog-view"></section>
+        <section class="view" id="product-view"></section>
+        <section class="view" id="cart-view"></section>
+        <section class="view" id="checkout-view"></section>
+        <section class="view" id="confirmation-view"></section>
+        <section class="view" id="orders-view"></section>
+        <section class="view" id="contact-view"></section>
+        <section class="view" id="admin-login-view"></section>
+        <section class="view" id="admin-view"></section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Navegação mobile">
+        <button class="nav-link active" data-view="home">
+          <i data-lucide="home"></i>
+          <span>Início</span>
+        </button>
+        <button class="nav-link" data-view="catalog">
+          <i data-lucide="shopping-bag"></i>
+          <span>Produtos</span>
+        </button>
+        <button class="nav-link" data-view="orders">
+          <i data-lucide="package-check"></i>
+          <span>Pedido</span>
+        </button>
+      </nav>
+    </div>
+  </body>
+</html>
