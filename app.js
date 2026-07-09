@@ -684,8 +684,8 @@ function checkoutStepTemplate() {
       <h1 class="page-title">Dados do comprador</h1>
       <div class="form-grid">
         <input class="input" placeholder="Nome completo" />
-        <input class="input" placeholder="WhatsApp" />
-        <input class="input" placeholder="E-mail" />
+        <input class="input" type="tel" inputmode="tel" placeholder="WhatsApp" />
+        <input class="input" type="email" placeholder="E-mail" />
       </div>
     `;
   }
@@ -694,7 +694,7 @@ function checkoutStepTemplate() {
       <h1 class="page-title">Destinatário e mensagem</h1>
       <div class="form-grid">
         <input class="input" placeholder="Nome de quem recebe" />
-        <input class="input" placeholder="Telefone opcional" />
+        <input class="input" type="tel" inputmode="tel" placeholder="Telefone opcional" />
         <textarea class="textarea" placeholder="Mensagem personalizada para o cartão"></textarea>
       </div>
     `;
@@ -809,7 +809,7 @@ function renderAdminLogin() {
       <h1 class="page-title">Login administrativo</h1>
       <p class="muted">Área exclusiva da loja. Entre para acessar dashboard, produtos, pedidos, agenda e configurações.</p>
       <div class="form-grid">
-        <input class="input" placeholder="E-mail do admin" />
+        <input class="input" type="email" placeholder="E-mail do admin" />
         <input class="input" type="password" placeholder="Senha" />
         <button class="button full" data-action="admin-login">${icon("lock-keyhole")} Entrar</button>
       </div>
@@ -855,10 +855,10 @@ function adminTemplate() {
           <h3>Cadastrar produto</h3>
           <div class="admin-form">
             <input class="input" placeholder="Nome" />
-            <input class="input" placeholder="Preço" />
+            <input class="input" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Preço" />
             <textarea class="textarea" placeholder="Descrição"></textarea>
             <select class="filter-select">${catalogCategories.slice(1).map((category) => `<option>${category}</option>`).join("")}</select>
-            <input class="input" placeholder="URL da foto" />
+            <input class="input" type="url" placeholder="URL da foto" />
             <select class="filter-select"><option>Disponível</option><option>Indisponível</option></select>
           </div>
           <button class="button full">${icon("plus")} Salvar produto</button>
@@ -907,7 +907,7 @@ function adminTemplate() {
         <h3>Configurações da loja</h3>
         <div class="admin-form">
           <input class="input" value="Amor Café e Flor" />
-          <input class="input" value="(41) 99999-1234" />
+          <input class="input" type="tel" inputmode="tel" value="(41) 99999-1234" />
           <input class="input" value="Rua das Flores, 120 - Curitiba" />
           <select class="filter-select"><option>Loja aberta</option><option>Loja pausada</option></select>
         </div>
