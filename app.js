@@ -142,7 +142,7 @@ function icon(name) {
 }
 
 function mount() {
-  const initialView = location.hash.replace("#", "") === "admin/login" ? "admin-login" : location.hash.replace("#", "");
+  const initialView = getInitialView();
   const validViews = ["home", "catalog", "product", "cart", "checkout", "confirmation", "orders", "contact", "admin-login", "admin"];
   if (validViews.includes(initialView)) state.view = initialView;
   renderHome();
@@ -158,6 +158,16 @@ function mount() {
   bindGlobalEvents();
   showView(state.view);
   refreshIcons();
+}
+
+function getInitialView() {
+  const path = location.pathname.replace(/\/+$/, "");
+  if (path === "/admin/login") return "admin-login";
+  if (path === "/admin") return "admin";
+
+  const hashView = location.hash.replace("#", "");
+  if (hashView === "admin/login") return "admin-login";
+  return hashView;
 }
 
 function refreshIcons() {
@@ -204,9 +214,9 @@ function showView(view) {
     view = "admin-login";
   }
   state.view = view;
-  const hash = view === "admin-login" ? "#admin/login" : `#${view}`;
-  if (location.hash !== hash) {
-    history.replaceState(null, "", hash);
+  const nextUrl = adminUrlFor(view);
+  if (`${location.pathname}${location.hash}` !== nextUrl) {
+    history.replaceState(null, "", nextUrl);
   }
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active"));
   $(`#${view}-view`).classList.add("active");
@@ -215,6 +225,12 @@ function showView(view) {
   });
   window.scrollTo({ top: 0, behavior: "smooth" });
   refreshIcons();
+}
+
+function adminUrlFor(view) {
+  if (view === "admin-login") return "/admin/login";
+  if (view === "admin") return "/admin";
+  return `/#${view}`;
 }
 
 function handleAction(button) {
