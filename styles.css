@@ -800,6 +800,7 @@ button {
 .input,
 .textarea {
   width: 100%;
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 16px;
   color: var(--brown-dark);
@@ -862,8 +863,21 @@ button {
 
 .input[type="date"],
 .input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  max-width: 100%;
   color-scheme: light;
+  text-align: left;
   line-height: normal;
+}
+
+.input[type="date"] {
+  font-size: 15px;
+}
+
+.input[type="time"] {
+  font-size: 16px;
 }
 
 .input[type="date"]::-webkit-calendar-picker-indicator,
