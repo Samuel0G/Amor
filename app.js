@@ -1,4 +1,4 @@
-const products = [
+let products = [
   {
     id: 1,
     name: "Buquê Encanto",
@@ -89,8 +89,8 @@ const products = [
   },
 ];
 
-const categories = ["Buquês", "Arranjos", "Cestas", "Café", "Presentes", "Chocolates"];
-const catalogCategories = ["Todos", "Flores", "Buquês", "Arranjos", "Cestas", "Café", "Chocolates", "Presentes", "Balões", "Pelúcias"];
+let categories = ["Buquês", "Arranjos", "Cestas", "Café", "Presentes", "Chocolates"];
+let catalogCategories = ["Todos", "Flores", "Buquês", "Arranjos", "Cestas", "Café", "Chocolates", "Presentes", "Balões", "Pelúcias"];
 const occasions = ["Amor", "Aniversário", "Casamento", "Maternidade", "Formatura", "Condolências"];
 const orderStatuses = ["Pedido recebido", "Em preparo", "Saiu para entrega", "Entregue", "Cancelado"];
 const adminStatuses = ["Pedido recebido", "Em preparo", "Pronto para retirada", "Saiu para entrega", "Entregue", "Cancelado"];
@@ -117,6 +117,7 @@ const state = {
   lastOrder: null,
   trackingQuery: "",
   trackedOrder: null,
+  dbConnected: false,
   adminTab: "dashboard",
   adminLoggedIn: false,
 };
@@ -130,7 +131,10 @@ function pixPrice(price) {
 }
 
 function cartTotal() {
-  return state.cart.reduce((total, item) => total + byId(item.productId).price * item.qty, 0);
+  return state.cart.reduce((total, item) => {
+    const product = byId(item.productId);
+    return product ? total + product.price * item.qty : total;
+  }, 0);
 }
 
 function cartItemsCount() {
@@ -158,6 +162,7 @@ function mount() {
   bindGlobalEvents();
   showView(state.view);
   refreshIcons();
+  loadDatabaseProducts();
 }
 
 function getInitialView() {
@@ -233,7 +238,7 @@ function adminUrlFor(view) {
   return `/#${view}`;
 }
 
-function handleAction(button) {
+async function handleAction(button) {
   const { action, id } = button.dataset;
   if (action === "occasions") {
     showView("home");
@@ -261,7 +266,9 @@ function handleAction(button) {
     renderCatalog();
   }
   if (action === "detail") {
-    state.selectedProduct = byId(Number(id));
+    const product = byId(Number(id));
+    if (!product) return;
+    state.selectedProduct = product;
     state.qty = 1;
     renderProduct();
     showView("product");
@@ -301,8 +308,7 @@ function handleAction(button) {
   if (action === "track-order") {
     const input = document.querySelector("[data-track-input]");
     state.trackingQuery = input?.value.trim() || "";
-    const query = state.trackingQuery.toLowerCase();
-    state.trackedOrder = state.orders.find((order) => order.id.toLowerCase() === query || order.tracking.toLowerCase() === query) || null;
+    state.trackedOrder = await findTrackedOrder(state.trackingQuery);
     renderOrders();
   }
   if (action === "admin-login") {
@@ -311,9 +317,74 @@ function handleAction(button) {
     showView("admin");
   }
   if (action === "confirm-order") {
+    await confirmOrder();
+  }
+  if (action === "admin-tab") {
+    state.adminTab = button.dataset.value;
+    renderAdmin();
+  }
+}
+
+async function loadDatabaseProducts() {
+  try {
+    const response = await fetch("/api/products");
+    if (!response.ok) return;
+
+    const data = await response.json();
+    if (!Array.isArray(data.products) || !data.products.length) return;
+
+    products = data.products.map((product) => ({
+      ...product,
+      id: Number(product.id),
+      price: Number(product.price),
+      rating: Number(product.rating || 4.9),
+      occasion: product.occasion || "Especial",
+      available: product.available !== false,
+    }));
+
+    const databaseCategories = [...new Set(products.map((product) => product.category).filter(Boolean))];
+    categories = databaseCategories.slice(0, 6);
+    catalogCategories = ["Todos", "Flores", ...databaseCategories.filter((category) => category !== "Flores")];
+    state.selectedProduct = products[0];
+    state.cart = [];
+    state.dbConnected = true;
+    renderAllDynamic();
+    renderProduct();
+  } catch (error) {
+    console.warn("Produtos do banco indisponiveis. Usando dados mockados.", error);
+  }
+}
+
+async function findTrackedOrder(code) {
+  const query = code.trim().toLowerCase();
+  if (!query) return null;
+
+  try {
+    const response = await fetch(`/api/orders?code=${encodeURIComponent(code)}`);
+    if (response.ok) {
+      const order = await response.json();
+      return {
+        id: order.id,
+        tracking: order.tracking,
+        date: order.date,
+        value: Number(order.value || 0),
+        status: order.status,
+        items: [],
+        type: "Entrega",
+      };
+    }
+  } catch (error) {
+    console.warn("Acompanhamento no banco indisponivel. Usando pedidos locais.", error);
+  }
+
+  return state.orders.find((order) => order.id.toLowerCase() === query || order.tracking.toLowerCase() === query) || null;
+}
+
+async function confirmOrder() {
+  const fallbackOrder = () => {
     const orderNumber = `PED-${Math.floor(1000 + Math.random() * 9000)}`;
     const tracking = Math.random().toString(36).slice(2, 8).toUpperCase();
-    state.orders.unshift({
+    return {
       id: orderNumber,
       tracking,
       date: "Entrega: 12/07, 15:30",
@@ -321,17 +392,69 @@ function handleAction(button) {
       status: "Pedido recebido",
       items: state.cart.map((item) => item.productId),
       type: state.deliveryType,
+    };
+  };
+
+  let order = null;
+
+  try {
+    const payload = checkoutPayload();
+    const response = await fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
-    state.lastOrder = state.orders[0];
-    state.checkoutStep = 1;
-    state.cart = [];
-    renderAllDynamic();
-    showView("confirmation");
+
+    if (response.ok) {
+      const saved = await response.json();
+      order = {
+        id: saved.id,
+        tracking: saved.tracking,
+        date: `${payload.delivery.type}: ${payload.delivery.date || "data a combinar"}, ${payload.delivery.time || "horário a combinar"}`,
+        value: Number(saved.value || cartTotal() + 18),
+        status: saved.status || "Pedido recebido",
+        items: state.cart.map((item) => item.productId),
+        type: state.deliveryType,
+      };
+    }
+  } catch (error) {
+    console.warn("Pedido no banco indisponivel. Criando pedido local.", error);
   }
-  if (action === "admin-tab") {
-    state.adminTab = button.dataset.value;
-    renderAdmin();
-  }
+
+  state.orders.unshift(order || fallbackOrder());
+  state.lastOrder = state.orders[0];
+  state.checkoutStep = 1;
+  state.cart = [];
+  renderAllDynamic();
+  showView("confirmation");
+}
+
+function checkoutPayload() {
+  const getValue = (name) => document.querySelector(`[name="${name}"]`)?.value.trim() || "";
+  return {
+    buyer: {
+      name: getValue("buyerName") || "Cliente Amor Cafe e Flor",
+      phone: getValue("buyerPhone") || "(41) 99999-1234",
+      email: getValue("buyerEmail") || `cliente-${Date.now()}@amorcafeeflor.local`,
+    },
+    recipient: {
+      name: getValue("recipientName"),
+      phone: getValue("recipientPhone"),
+      message: getValue("cardMessage"),
+    },
+    delivery: {
+      type: state.deliveryType,
+      address: getValue("deliveryAddress"),
+      date: getValue("deliveryDate"),
+      time: getValue("deliveryTime"),
+    },
+    payment: state.payment,
+    deliveryFee: state.deliveryType === "Retirada na loja" ? 0 : 18,
+    items: state.cart.map((item) => ({
+      productId: item.productId,
+      qty: item.qty,
+    })),
+  };
 }
 
 function addToCart(productId, qty = 1, rerender = true) {
@@ -436,13 +559,14 @@ function renderHome() {
 }
 
 function homeProductRail(title, items) {
+  const safeItems = items.filter(Boolean);
   return `
     <section class="section home-product-section">
       <div class="section-row">
         <h2 class="section-title">${title}</h2>
         <button class="text-link" data-view="catalog">Ver todos</button>
       </div>
-      <div class="home-product-rail">${items.map(productCard).join("")}</div>
+      <div class="home-product-rail">${safeItems.map(productCard).join("")}</div>
     </section>
   `;
 }
@@ -611,11 +735,12 @@ function renderProduct() {
 function renderCart() {
   const subtotal = cartTotal();
   const delivery = state.cart.length ? 18 : 0;
+  const validItems = state.cart.filter((item) => byId(item.productId));
   $("#cart-view").innerHTML = `
     ${header("Carrinho", "Revise os presentes antes de finalizar.")}
     <div class="cart-layout">
       <div class="cart-list">
-        ${state.cart.length ? state.cart.map((item) => cartItem(item)).join("") : `<div class="empty">Seu carrinho está aguardando um presente especial.</div>`}
+        ${validItems.length ? validItems.map((item) => cartItem(item)).join("") : `<div class="empty">Seu carrinho está aguardando um presente especial.</div>`}
       </div>
       <aside class="summary-panel">
         <h2 class="section-title">Resumo</h2>
@@ -631,6 +756,7 @@ function renderCart() {
 
 function cartItem(item) {
   const product = byId(item.productId);
+  if (!product) return "";
   return `
     <article class="cart-item">
       <img class="cart-image" src="${product.image}" alt="${product.name}" />
@@ -651,6 +777,7 @@ function cartItem(item) {
 }
 
 function renderCheckout() {
+  const deliveryFee = state.deliveryType === "Retirada na loja" ? 0 : 18;
   $("#checkout-view").innerHTML = `
     ${header("Checkout", "Etapa ${state.checkoutStep} de 4")}
     <div class="checkout-layout">
@@ -671,7 +798,7 @@ function renderCheckout() {
         <div class="summary-line"><span>Itens</span><strong>${cartItemsCount()}</strong></div>
         <div class="summary-line"><span>Entrega</span><strong>${state.deliveryType}</strong></div>
         <div class="summary-line"><span>Pagamento</span><strong>${state.payment}</strong></div>
-        <div class="summary-line total"><span>Total</span><span>${brl.format(cartTotal() + 18)}</span></div>
+        <div class="summary-line total"><span>Total</span><span>${brl.format(cartTotal() + deliveryFee)}</span></div>
       </aside>
     </div>
   `;
@@ -683,9 +810,9 @@ function checkoutStepTemplate() {
     return `
       <h1 class="page-title">Dados do comprador</h1>
       <div class="form-grid">
-        <input class="input" placeholder="Nome completo" />
-        <input class="input" type="tel" inputmode="tel" placeholder="WhatsApp" />
-        <input class="input" type="email" placeholder="E-mail" />
+        <input class="input" name="buyerName" placeholder="Nome completo" />
+        <input class="input" name="buyerPhone" type="tel" inputmode="tel" placeholder="WhatsApp" />
+        <input class="input" name="buyerEmail" type="email" placeholder="E-mail" />
       </div>
     `;
   }
@@ -693,9 +820,9 @@ function checkoutStepTemplate() {
     return `
       <h1 class="page-title">Destinatário e mensagem</h1>
       <div class="form-grid">
-        <input class="input" placeholder="Nome de quem recebe" />
-        <input class="input" type="tel" inputmode="tel" placeholder="Telefone opcional" />
-        <textarea class="textarea" placeholder="Mensagem personalizada para o cartão"></textarea>
+        <input class="input" name="recipientName" placeholder="Nome de quem recebe" />
+        <input class="input" name="recipientPhone" type="tel" inputmode="tel" placeholder="Telefone opcional" />
+        <textarea class="textarea" name="cardMessage" placeholder="Mensagem personalizada para o cartão"></textarea>
       </div>
     `;
   }
@@ -706,9 +833,9 @@ function checkoutStepTemplate() {
         ${["Entrega", "Retirada na loja"].map((type) => `<button class="option-card ${state.deliveryType === type ? "active" : ""}" data-action="delivery" data-value="${type}">${type}</button>`).join("")}
       </div>
       <div class="form-grid">
-        ${state.deliveryType === "Entrega" ? `<input class="input" placeholder="Endereço de entrega" />` : `<input class="input" value="Retirada: loja Amor Café e Flor" readonly />`}
-        <input class="input" type="date" value="2026-07-12" />
-        <input class="input" type="time" value="15:30" />
+        ${state.deliveryType === "Entrega" ? `<input class="input" name="deliveryAddress" placeholder="Endereço de entrega" />` : `<input class="input" name="deliveryAddress" value="Retirada: loja Amor Café e Flor" readonly />`}
+        <input class="input" name="deliveryDate" type="date" value="2026-07-12" />
+        <input class="input" name="deliveryTime" type="time" value="15:30" />
       </div>
     `;
   }
@@ -762,6 +889,12 @@ function renderOrders() {
 }
 
 function orderCard(order) {
+  const orderImages = (order.items || [])
+    .map((id) => byId(id))
+    .filter(Boolean)
+    .map((product) => `<img class="order-product-img" src="${product.image}" alt="${product.name}" />`)
+    .join("");
+
   return `
     <article class="order-card">
       <div class="order-top">
@@ -775,7 +908,7 @@ function orderCard(order) {
         ${orderStatuses.map((status) => `<span class="status-step ${statusReached(order.status, status) ? "done" : ""}">${status}</span>`).join("")}
       </div>
       <div class="order-products">
-        ${order.items.map((id) => `<img class="order-product-img" src="${byId(id).image}" alt="${byId(id).name}" />`).join("")}
+        ${orderImages || `<span class="order-meta">Produtos registrados no pedido.</span>`}
       </div>
     </article>
   `;
