@@ -25,3 +25,19 @@ DATABASE_SSL=true
 ## Observacao
 
 O schema anexado e inspirado em restaurante/iFood. Ele funciona para produtos e pedidos, mas nao tem campos especificos de floricultura como destinatario, mensagem do cartao e data agendada. Esses dados ja estao no frontend, mas para persistir tudo com fidelidade o ideal e criar colunas/tabelas extras depois.
+
+## Dados iniciais
+
+O arquivo `schema_ifood_bd_1.sql` cria apenas as tabelas. Para o catalogo nao ficar vazio, execute tambem:
+
+```sql
+database/seed_amor_cafe.sql
+```
+
+Depois disso, abra:
+
+```txt
+https://seu-site.vercel.app/api/products
+```
+
+Se a conexao estiver correta, essa URL deve retornar uma lista JSON com produtos.
